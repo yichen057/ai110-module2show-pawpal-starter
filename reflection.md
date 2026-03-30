@@ -30,9 +30,11 @@ The system enables three primary user actions:
 
 **c. Design changes**
 
-- Did your design change during implementation?
+- Did your design change during implementation? Yes
 - If yes, describe at least one change and why you made it.
+Based on AI feedback, I realized my initial Scheduler was too simplistic and lacked a way to store the final output. I added a ScheduledTask dataclass and a structured Schedule class. This change is crucial because it allows the system to link a specific Pet to a Task at a specific datetime, making it much easier to detect time conflicts and display a clear itinerary in the UI later. I also added time window constraints to the Task class to ensure activities like "Feeding" happen at appropriate times.
 
+Additionally, I added a `get_all_tasks()` method to the Owner class to follow the **encapsulation principle**. This method allows the Scheduler to retrieve all tasks from all pets without directly traversing the data structure. This improves maintainability—if the internal data structure changes, only the Owner class needs to be updated, not the Scheduler.
 ---
 
 ## 2. Scheduling Logic and Tradeoffs
