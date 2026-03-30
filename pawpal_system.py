@@ -3,6 +3,9 @@ from datetime import datetime, time, timedelta
 from itertools import combinations
 from typing import List, Optional, Dict, Tuple
 
+VALID_FREQUENCIES = {"daily", "weekly", "once", "twice_daily"}
+VALID_PET_TYPES = {"dog", "cat", "bird", "fish", "rabbit", "hamster", "turtle", "snake", "other"}
+
 
 @dataclass
 class Task:
@@ -15,6 +18,24 @@ class Task:
     latest_start: Optional[time] = None    # Latest time task can start (e.g., 6:00 PM)
     frequency: str = "daily"  # e.g., "daily", "weekly", "once", "twice_daily"
     is_completed: bool = False  # Completion status for tracking task completion
+
+    def __post_init__(self):
+        """Validate task fields after initialization."""
+        if not self.description or not self.description.strip():
+            raise ValueError("Task description cannot be empty.")
+        self.description = self.description.strip()
+        if not isinstance(self.duration, int) or self.duration <= 0:
+            raise ValueError(f"Task duration must be a positive integer, got {self.duration}.")
+        if self.duration > 1440:
+            raise ValueError(f"Task duration cannot exceed 1440 minutes (24 hours), got {self.duration}.")
+        if not isinstance(self.priority, int) or self.priority < 1 or self.priority > 5:
+            raise ValueError(f"Task priority must be between 1 and 5, got {self.priority}.")
+        if self.frequency not in VALID_FREQUENCIES:
+            raise ValueError(f"Invalid frequency '{self.frequency}'. Must be one of {VALID_FREQUENCIES}.")
+        if self.earliest_start and self.latest_start and self.earliest_start > self.latest_start:
+            raise ValueError(
+                f"earliest_start ({self.earliest_start}) cannot be after latest_start ({self.latest_start})."
+            )
 
     def mark_complete(self) -> None:
         """Mark this task as completed."""
@@ -35,6 +56,17 @@ class Pet:
     name: str
     type: str
     tasks: List[Task] = field(default_factory=list)
+
+    def __post_init__(self):
+        """Validate pet fields after initialization."""
+        if not self.name or not self.name.strip():
+            raise ValueError("Pet name cannot be empty.")
+        self.name = self.name.strip()
+        if not self.type or not self.type.strip():
+            raise ValueError("Pet type cannot be empty.")
+        self.type = self.type.strip()
+        if self.type.lower() not in VALID_PET_TYPES:
+            raise ValueError(f"Invalid pet type '{self.type}'. Must be one of {VALID_PET_TYPES}.")
 
     def add_task(self, task: Task) -> None:
         """Add a task to the pet's task list."""
@@ -97,8 +129,20 @@ class Owner:
     max_daily_time: int = 480  # in minutes, default 8 hours
     preferences: Dict[str, bool] = field(default_factory=dict)
 
+    def __post_init__(self):
+        """Validate owner fields after initialization."""
+        if not self.name or not self.name.strip():
+            raise ValueError("Owner name cannot be empty.")
+        self.name = self.name.strip()
+        if not isinstance(self.max_daily_time, int) or self.max_daily_time <= 0:
+            raise ValueError(f"max_daily_time must be a positive integer, got {self.max_daily_time}.")
+        if self.max_daily_time > 1440:
+            raise ValueError(f"max_daily_time cannot exceed 1440 minutes (24 hours), got {self.max_daily_time}.")
+
     def add_pet(self, pet: Pet) -> None:
         """Add a pet to the owner's pet list."""
+        if any(p.name == pet.name for p in self.pets):
+            raise ValueError(f"A pet named '{pet.name}' already exists for owner '{self.name}'.")
         self.pets.append(pet)
 
     def get_all_tasks(self) -> List[Task]:
@@ -259,32 +303,66 @@ class Scheduler:
         return schedule
 
     def _find_available_slot(
-        self, 
-        task: Task, 
-        pet: Pet, 
-        scheduled_tasks: List[ScheduledTask], 
+        self,
+        task: Task,
+        pet: Pet,
+        scheduled_tasks: List[ScheduledTask],
         start_time: datetime,
         max_daily_minutes: int
     ) -> Optional[ScheduledTask]:
-        """Find an available time slot for a task that respects time windows and avoids conflicts."""
+        """Find an available time slot for a task that respects time windows and avoids conflicts.
+
+        Uses a sorted list of existing tasks to efficiently find gaps instead of
+        checking every 15-minute increment against all scheduled tasks.
+        """
         earliest = task.earliest_start or time(6, 0)
         latest = task.latest_start or time(22, 0)
-        current_time = start_time.replace(hour=earliest.hour, minute=earliest.minute)
-        latest_time = start_time.replace(hour=latest.hour, minute=latest.minute)
+        window_start = start_time.replace(hour=earliest.hour, minute=earliest.minute)
+        window_end = start_time.replace(hour=latest.hour, minute=latest.minute)
 
-        def _has_conflict(st_time: datetime, en_time: datetime) -> bool:
-            return any(
-                not (en_time <= st.start_time or st_time >= st.end_time)
-                for st in scheduled_tasks
+        # Early exit: check capacity before searching
+        current_total = sum(st.task.duration for st in scheduled_tasks)
+        if current_total + task.duration > max_daily_minutes:
+            return None
+
+        # Sort existing tasks by start time for efficient gap finding
+        sorted_existing = sorted(scheduled_tasks, key=lambda st: st.start_time)
+
+        # Collect candidate start times: window start + end of each existing task
+        candidates = [window_start]
+        for st in sorted_existing:
+            if st.end_time > window_start:
+                candidates.append(st.end_time)
+
+        for candidate in candidates:
+            # Align to 15-minute grid
+            remainder = candidate.minute % 15
+            if remainder != 0:
+                candidate = candidate + timedelta(minutes=15 - remainder)
+
+            proposed_end = candidate + timedelta(minutes=task.duration)
+            if proposed_end > window_end:
+                continue
+
+            has_conflict = any(
+                not (proposed_end <= st.start_time or candidate >= st.end_time)
+                for st in sorted_existing
             )
+            if not has_conflict:
+                reason = f"Scheduled within time window ({earliest.strftime('%H:%M')}-{latest.strftime('%H:%M')}) based on priority {task.priority}."
+                return ScheduledTask(task=task, pet=pet, start_time=candidate, end_time=proposed_end, reason=reason)
 
-        while current_time + timedelta(minutes=task.duration) <= latest_time:
+        # Fallback: scan 15-minute increments for any remaining gaps
+        current_time = window_start
+        while current_time + timedelta(minutes=task.duration) <= window_end:
             proposed_end = current_time + timedelta(minutes=task.duration)
-            if not _has_conflict(current_time, proposed_end):
-                total_with_this_task = sum(st.task.duration for st in scheduled_tasks) + task.duration
-                if total_with_this_task <= max_daily_minutes:
-                    reason = f"Scheduled within time window ({earliest.strftime('%H:%M')}-{latest.strftime('%H:%M')}) based on priority {task.priority}."
-                    return ScheduledTask(task=task, pet=pet, start_time=current_time, end_time=proposed_end, reason=reason)
+            has_conflict = any(
+                not (proposed_end <= st.start_time or current_time >= st.end_time)
+                for st in sorted_existing
+            )
+            if not has_conflict:
+                reason = f"Scheduled within time window ({earliest.strftime('%H:%M')}-{latest.strftime('%H:%M')}) based on priority {task.priority}."
+                return ScheduledTask(task=task, pet=pet, start_time=current_time, end_time=proposed_end, reason=reason)
             current_time += timedelta(minutes=15)
 
         return None
@@ -392,23 +470,72 @@ class Scheduler:
         
         return True
 
-    def resolve_conflicts(self, scheduled_tasks: List[ScheduledTask]) -> List[ScheduledTask]:
-        """Remove lower-priority tasks from conflicting pairs to create a conflict-free schedule."""
+    def resolve_conflicts(
+        self, scheduled_tasks: List[ScheduledTask], strategy: str = "priority"
+    ) -> List[ScheduledTask]:
+        """Resolve conflicts using the specified strategy.
+
+        Strategies:
+            - "priority": Keep the higher-priority task, drop the lower one.
+            - "shortest": Keep the shorter task to maximize the number of tasks scheduled.
+            - "reschedule": Try to move conflicting tasks to new time slots before dropping.
+        """
+        if strategy not in ("priority", "shortest", "reschedule"):
+            raise ValueError(f"Unknown conflict resolution strategy '{strategy}'. "
+                             f"Choose from: 'priority', 'shortest', 'reschedule'.")
+
         conflicts = self.detect_conflicts(scheduled_tasks)
-        
         if not conflicts:
             return scheduled_tasks
-        
-        # Sort tasks by priority to identify which lower-priority task to reschedule
+
+        if strategy == "reschedule":
+            return self._resolve_by_rescheduling(scheduled_tasks, conflicts)
+
         resolved = scheduled_tasks[:]
-        
+        removed = set()
+
         for st1, st2 in conflicts:
-            # Reschedule the lower-priority task
-            if st1.task.priority < st2.task.priority:
-                # st1 is lower priority, so remove and try to reschedule later
-                resolved.remove(st1)
+            if id(st1) in removed or id(st2) in removed:
+                continue
+            if strategy == "priority":
+                victim = st1 if st1.task.priority < st2.task.priority else st2
+            else:  # shortest — keep the shorter task
+                victim = st1 if st1.task.duration > st2.task.duration else st2
+
+            if victim in resolved:
+                resolved.remove(victim)
+                removed.add(id(victim))
+
+        return resolved
+
+    def _resolve_by_rescheduling(
+        self,
+        scheduled_tasks: List[ScheduledTask],
+        conflicts: List[Tuple[ScheduledTask, ScheduledTask]],
+    ) -> List[ScheduledTask]:
+        """Attempt to reschedule lower-priority conflicting tasks before dropping them."""
+        resolved = scheduled_tasks[:]
+        removed = set()
+
+        for st1, st2 in conflicts:
+            if id(st1) in removed or id(st2) in removed:
+                continue
+
+            # Identify the task to move (lower priority)
+            to_move = st1 if st1.task.priority <= st2.task.priority else st2
+            keep = st2 if to_move is st1 else st1
+
+            # Remove it temporarily and try to find a new slot
+            temp_schedule = [s for s in resolved if s is not to_move]
+            base_time = keep.end_time
+            new_slot = self._find_available_slot(
+                to_move.task, to_move.pet, temp_schedule, base_time, 1440
+            )
+
+            if new_slot:
+                resolved = temp_schedule + [new_slot]
             else:
-                # st2 is lower priority
-                resolved.remove(st2)
-        
+                resolved = temp_schedule
+                removed.add(id(to_move))
+
         return resolved
