@@ -7,7 +7,28 @@
 - Briefly describe your initial UML design.
 - What classes did you include, and what responsibilities did you assign to each?
 
-**b. Design changes**
+Initial design description:
+I designed a modular, object-oriented system to handle pet care management. The architecture is split into four primary classes to ensure a clear separation of concerns:
+
+Pet Class: Responsible for storing individual pet profiles, including their specific needs and a collection of their assigned tasks.
+
+Task Class: A data-holding class that defines a single activity, including its priority, duration, and time_slot.
+
+Owner Class: Acts as the primary data controller, managing a list of Pet objects and coordinating user-level settings.
+
+Scheduler Class: The "brain" of the system. It contains the logic for sorting tasks, detecting time conflicts, and generating the optimized daily itinerary.
+
+**b. Core User Actions**
+
+The system enables three primary user actions:
+
+1. **Add/Edit Pet Information**: Users can register a new pet into the system or modify existing pet details (name, type, age, preferences, special needs). This action forms the foundation of the system, as all scheduling and task management revolves around the pet's profile and individual characteristics.
+
+2. **Add/Edit Tasks**: Users can create and manage daily tasks or activities for their pet (e.g., feeding, walks, grooming, playtime, medication). Each task can have associated properties like duration, priority level, time windows, and any special requirements. This gives users fine-grained control over what needs to be scheduled.
+
+3. **Generate Daily Plan with Reasoning**: The system produces an optimized daily schedule based on pet constraints (available time, pet energy levels, preferences) and task requirements. Importantly, the system provides detailed reasoning for its scheduling decisions—explaining *why* tasks are placed at certain times, how constraints were balanced, and what tradeoffs were made. This transparency helps users understand and trust the scheduling logic.
+
+**c. Design changes**
 
 - Did your design change during implementation?
 - If yes, describe at least one change and why you made it.
