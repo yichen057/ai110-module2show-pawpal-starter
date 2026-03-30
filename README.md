@@ -1,129 +1,129 @@
-# PawPal+ (Module 2 Project)
+# PawPal+
 
-You are building **PawPal+**, a Streamlit app that helps a pet owner plan care tasks for their pet.
+PawPal+ is a Streamlit app for planning daily pet care. It combines a simple UI with a scheduling engine that sorts tasks, respects time windows, warns about conflicts, and explains why each task was placed where it was.
 
-## Scenario
+## 📸 Demo
 
-A busy pet owner needs help staying consistent with pet care. They want an assistant that can:
+[View PawPal+ screenshots (PDF)](/course_images/ai110/PawPal+Screenshots.pdf)
 
-- Track pet care tasks (walks, feeding, meds, enrichment, grooming, etc.)
-- Consider constraints (time available, priority, owner preferences)
-- Produce a daily plan and explain why it chose that plan
+## Overview
 
-Your job is to design the system first (UML), then implement the logic in Python, then connect it to the Streamlit UI.
+PawPal+ helps a pet owner organize care tasks such as walks, feeding, medication, grooming, and enrichment. The system models owners, pets, tasks, and schedules as separate classes, then uses a `Scheduler` to build a feasible day plan from those inputs.
 
-## What you will build
+## Features
 
-Your final app should:
+- Priority-based scheduling so high-priority tasks are placed first.
+- Optional time-based sorting to preview tasks in chronological order.
+- Time window constraints with `earliest_start` and `latest_start`.
+- Daily, weekly, and twice-daily recurrence support.
+- Conflict detection for overlapping tasks.
+- Exact-start conflict warnings for tasks that begin at the same time.
+- Conflict resolution strategies: `priority`, `shortest`, and `reschedule`.
+- Multi-criteria task filtering by pet, completion status, priority, and duration.
+- Input validation on `Task`, `Pet`, and `Owner` to reject invalid data early.
+- Reason strings on scheduled tasks so the UI can explain scheduler decisions.
+- Streamlit schedule display with status blocks, warnings, and table-based output.
 
-- Let a user enter basic owner + pet info
-- Let a user add/edit tasks (duration + priority at minimum)
-- Generate a daily schedule/plan based on constraints and priorities
-- Display the plan clearly (and ideally explain the reasoning)
-- Include tests for the most important scheduling behaviors
+## System Architecture
 
-## Smarter Scheduling
+The final implementation includes these core classes:
 
-PawPal+ now includes smarter task handling:
+- `Owner`: stores pets, owner limits, and task filtering helpers.
+- `Pet`: stores a pet profile and its task list.
+- `Task`: stores task details, recurrence metadata, and completion state.
+- `ScheduledTask`: links a task to a pet and a specific start/end time.
+- `Schedule`: stores the generated plan, total duration, feasibility, and notes.
+- `Scheduler`: contains the sorting, scheduling, recurrence expansion, conflict detection, feasibility checks, and conflict resolution logic.
 
-- priority-based task sorting and optional time-based ordering
-- recurrence support for daily/weekly recurring tasks (auto-creates next occurrence on completion)
-- lightweight conflict detection that warns on exact same start times
-- full overlap detection to capture possible schedule collisions without crashing
-- filters by pet name, completion status, and combined criteria for quick query
-- **input validation** on all data classes (Task, Pet, Owner) to reject invalid or nonsensical values
-- **multiple conflict resolution strategies**: `"priority"` (keep higher-priority), `"shortest"` (keep shorter task), and `"reschedule"` (move conflicting tasks to new slots before dropping)
-- **performance-optimized slot finding** using candidate-based search with early capacity exit
+Final UML files:
 
-The scheduler keeps the core experience simple while giving clear warnings and robust handling of edge cases at scale.
+- [uml_final.mmd](./uml_final.mmd)
+- [uml_final.png](./uml_final.png)
 
-## Getting started
+## Project Structure
 
-### Setup
+```text
+.
+├── app.py
+├── pawpal_system.py
+├── test/test_pawpal.py
+├── uml_final.mmd
+├── uml_final.png
+└── reflection.md
+```
+
+## Setup
 
 ```bash
-python -m venv .venv
-source .venv/bin/activate  # Windows: .venv\Scripts\activate
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### Suggested workflow
-
-1. Read the scenario carefully and identify requirements and edge cases.
-2. Draft a UML diagram (classes, attributes, methods, relationships).
-3. Convert UML into Python class stubs (no logic yet).
-4. Implement scheduling logic in small increments.
-5. Add tests to verify key behaviors.
-6. Connect your logic to the Streamlit UI in `app.py`.
-7. Refine UML so it matches what you actually built.
-
-## Testing PawPal+
-
-### Run Tests
+## Run The App
 
 ```bash
-python -m pytest test/test_pawpal.py -v
+streamlit run app.py
 ```
 
-### Test Coverage
+## How To Use
 
-The test suite includes **60 comprehensive tests** organized into 10 test classes:
+1. Add one or more pets.
+2. Add tasks with duration, priority, and optional time windows.
+3. Review the task queue preview to see sorted and filtered tasks.
+4. Generate the schedule.
+5. Review the final plan, including warnings and schedule explanations.
 
-#### Core Functionality Tests (12 tests)
-- **Task Management:** Creation, completion tracking, status toggling
-- **Pet Management:** Pet creation, task assignment, task grouping
-- **Owner Management:** Pet ownership, task retrieval, filtering by status/priority
-- **Basic Scheduling:** Priority-based sorting, conflict detection, schedule generation
+## Scheduling Algorithms
 
-#### Edge Case Tests (5 tests)
-- ✅ **Back-to-Back Task Scheduling:** Validates that consecutive tasks (ending/starting at same time) don't trigger false conflicts
-- ✅ **Time Window Constraints:** Verifies tasks exceeding available time windows are rejected
-- ✅ **Capacity Overflow:** Ensures max_daily_time constraint prevents scheduling too many tasks
-- ✅ **Twice-Daily Task Expansion:** Confirms morning (≤12:00) and evening (≥18:00) constraints are honored
-- ✅ **Exact Start Time Conflicts:** Detects tasks scheduled at identical times
+### Sorting
 
-#### Beginner-Friendly Tests (8 tests)
-- **Sorting Correctness** (2 tests): Chronological ordering and priority-based sorting
-- **Recurrence Logic** (2 tests): Daily and weekly task auto-creation on completion
-- **Conflict Detection** (3 tests): Overlapping vs. non-overlapping tasks, feasibility checking
-- **Integration** (1 test): End-to-end workflow validation
+- `sort_by_priority()` orders tasks by highest priority first, then by shortest duration.
+- `sort_by_time()` orders tasks by earliest allowed start time, then priority.
 
-#### Input Validation Tests (17 tests)
-- **Task Validation:** Empty/whitespace descriptions, invalid durations (0, negative, >1440), out-of-range priorities, invalid frequencies, reversed time windows
-- **Pet Validation:** Empty names, invalid pet types
-- **Owner Validation:** Empty names, invalid max_daily_time, duplicate pet names
-- **Sanitization:** Whitespace trimming, valid input acceptance
+### Slot Selection
 
-#### Stress & Performance Tests (4 tests)
-- **50-Task Scheduling:** 5 pets with 10 tasks each, verifies conflict-free output
-- **100-Task Scheduling:** Single pet with 100 tasks, verifies capacity compliance
-- **Bulk Conflict Detection:** 50 scheduled tasks checked for false positives
-- **20-Pet Scheduling:** Owner with 20 pets, end-to-end schedule generation
+- `_find_available_slot()` uses candidate start times and a 15-minute grid to find a valid gap.
+- The scheduler exits early if total scheduled time would exceed `max_daily_time`.
 
-#### Error Handling & Recovery Tests (6 tests)
-- Schedule generation with no pets, all-completed tasks
-- Marking non-existent tasks, tasks on wrong pets, unknown pets
-- Invalid conflict resolution strategy rejection
+### Recurrence
 
-#### Conflict Resolution Strategy Tests (4 tests)
-- **Priority strategy:** Keeps higher-priority task, drops lower
-- **Shortest strategy:** Keeps shorter task to maximize scheduled count
-- **Reschedule strategy:** Moves conflicting tasks to new slots before dropping
-- **No-conflict passthrough:** All strategies return unchanged list when no conflicts
+- `expand_recurring_tasks()` expands `twice_daily` tasks into morning and evening instances.
+- Completing a daily or weekly task creates the next recurring instance automatically.
 
-### Confidence Level: ⭐⭐⭐⭐⭐ (5/5 Stars)
+### Conflict Handling
 
-**Why 5 stars?**
+- `detect_conflicts()` finds overlapping scheduled intervals.
+- `detect_same_start_conflicts()` finds tasks with identical start times.
+- `get_conflict_warning()` summarizes problems for the UI.
+- `resolve_conflicts()` supports three recovery strategies.
 
-✅ **Strengths:**
-- 60 passing tests covering core features, edge cases, validation, stress, error handling, and conflict resolution
-- All sorting logic thoroughly validated
-- Recurrence and conflict detection working correctly
-- Boundary conditions tested (time windows, capacity limits)
-- Real-world scenarios included (back-to-back tasks, capacity overflow)
-- Input validation prevents invalid data from entering the system
-- Stress tests confirm the scheduler handles 50-100 tasks without conflicts or errors
-- Multiple conflict resolution strategies tested and verified
-- Error handling ensures graceful failures with clear messages
+## Testing
 
-The system is **production-ready** with high reliability for pet care scheduling scenarios at any realistic scale.
+Run the full test suite with:
+
+```bash
+PYTHONPATH=. pytest test/test_pawpal.py -v
+```
+
+The project currently includes 60 passing tests covering:
+
+- core class behavior
+- schedule generation
+- recurrence logic
+- conflict detection
+- input validation
+- stress cases
+- error handling
+- conflict resolution strategies
+
+## Key Files
+
+- [app.py](/Users/yichen/Downloads/School/算法课/CodePath/AI110/Week4/ai110-module2show-pawpal-starter/app.py): Streamlit UI and schedule display.
+- [pawpal_system.py](/Users/yichen/Downloads/School/算法课/CodePath/AI110/Week4/ai110-module2show-pawpal-starter/pawpal_system.py): domain model and scheduling logic.
+- [test/test_pawpal.py](/Users/yichen/Downloads/School/算法课/CodePath/AI110/Week4/ai110-module2show-pawpal-starter/test/test_pawpal.py): automated tests.
+- [reflection.md](/Users/yichen/Downloads/School/算法课/CodePath/AI110/Week4/ai110-module2show-pawpal-starter/reflection.md): project reflection.
+
+## Notes
+
+This project was built for the AI110 Module 2 PawPal+ assignment. The focus is on clear object-oriented design, algorithmic scheduling behavior, and transparent UI feedback.

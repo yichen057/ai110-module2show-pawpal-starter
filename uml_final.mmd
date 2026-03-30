@@ -1,0 +1,82 @@
+classDiagram
+    class Owner {
+        +name: str
+        +pets: List~Pet~
+        +max_daily_time: int
+        +preferences: Dict~str, bool~
+        +add_pet(pet: Pet) void
+        +get_all_tasks() List~Task~
+        +filter_tasks_by_pet(pet_name: str) List~Task~
+        +filter_tasks_by_status(completed: bool) List~Task~
+        +filter_tasks(pet_names, completed, priority_min, priority_max, duration_max) List~Task~
+        +mark_task_complete(task: Task, pet: Pet) void
+    }
+
+    class Pet {
+        +name: str
+        +type: str
+        +tasks: List~Task~
+        +add_task(task: Task) void
+        +mark_task_complete(task: Task) void
+        -_create_next_recurring_instance(original_task: Task) void
+    }
+
+    class Task {
+        +description: str
+        +duration: int
+        +priority: int
+        +scheduled_time: datetime
+        +earliest_start: time
+        +latest_start: time
+        +frequency: str
+        +is_completed: bool
+        +mark_complete() void
+        +mark_incomplete() void
+    }
+
+    class ScheduledTask {
+        +task: Task
+        +pet: Pet
+        +start_time: datetime
+        +end_time: datetime
+        +reason: str
+    }
+
+    class Schedule {
+        +owner: Owner
+        +scheduled_tasks: List~ScheduledTask~
+        +total_duration: int
+        +is_feasible: bool
+        +notes: str
+        +add_scheduled_task(scheduled_task: ScheduledTask) void
+        +get_schedule_by_time() List~ScheduledTask~
+    }
+
+    class Scheduler {
+        +generate_schedule(owner: Owner) Schedule
+        -_find_available_slot(task: Task, pet: Pet, scheduled_tasks, start_time, max_daily_minutes) ScheduledTask
+        +optimize_tasks(tasks: List~Task~) List~Task~
+        +detect_conflicts(scheduled_tasks: List~ScheduledTask~) List
+        +detect_same_start_conflicts(scheduled_tasks: List~ScheduledTask~) List
+        +get_conflict_warning(schedule: Schedule) str
+        +sort_by_priority(tasks: List~Task~) List~Task~
+        +sort_by_time(tasks: List~Task~) List~Task~
+        +sort_by_time_string(tasks: List~Task~) List~Task~
+        +expand_recurring_tasks(tasks: List~Task~) List~Task~
+        +is_feasible(owner: Owner, scheduled_tasks: List~ScheduledTask~) bool
+        +resolve_conflicts(scheduled_tasks: List~ScheduledTask~, strategy: str) List~ScheduledTask~
+        -_resolve_by_rescheduling(scheduled_tasks, conflicts) List~ScheduledTask~
+    }
+
+    Owner "1" o-- "0..*" Pet : owns
+    Pet "1" o-- "0..*" Task : has
+    Owner "1" --> "0..*" Task : filters
+    Owner "1" --> "0..*" Schedule : requests
+    Schedule "1" o-- "0..*" ScheduledTask : contains
+    ScheduledTask --> Task : wraps
+    ScheduledTask --> Pet : assigned_to
+    Schedule --> Owner : belongs_to
+    Scheduler --> Owner : schedules_for
+    Scheduler --> Task : sorts_expands
+    Scheduler --> ScheduledTask : detects_conflicts_on
+    Scheduler --> Schedule : creates

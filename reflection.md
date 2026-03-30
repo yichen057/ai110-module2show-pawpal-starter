@@ -73,10 +73,37 @@ Rationale: For a family-pet planner, avoiding crashes and giving actionable warn
 - How did you use AI tools during this project (for example: design brainstorming, debugging, refactoring)?
 - What kinds of prompts or questions were most helpful?
 
+I used VS Code Copilot in several different ways across the project:
+
+1. **Design brainstorming in the early phase**: I used Copilot Chat to pressure-test my initial class model and ask whether the responsibilities of `Owner`, `Pet`, `Task`, and `Scheduler` were separated cleanly. This was especially useful when I was deciding whether scheduling output should be represented as plain tuples or as dedicated classes.
+
+2. **Implementation support during the scheduler build**: Copilot was most effective when I gave it the current file and a narrow question such as: "Based on this scheduler, what helper methods should exist for sorting, conflict detection, and recurrence?" or "What edge cases should I test for this time-window scheduling logic?" Those prompts helped me discover missing methods like structured conflict warnings, recurrence helpers, and better task filtering.
+
+3. **Debugging and verification**: I used Copilot to suggest possible causes when tests failed or when the UI did not reflect the algorithmic layer clearly. It was especially helpful for identifying boundary cases like back-to-back tasks, tasks longer than their allowed window, and same-start conflicts.
+
+4. **Refactoring and documentation**: Copilot helped me compare my final code against my original UML and README so I could update the design artifacts to match the real implementation instead of the initial plan.
+
+The most helpful prompts were the ones that were specific and grounded in the actual codebase, for example:
+- "Based on my final implementation, what updates should I make to my initial UML diagram to accurately show how my classes interact?"
+- "What tests am I missing for time-window scheduling and recurrence?"
+- "How should the Streamlit UI surface scheduler conflicts in a way that is helpful to a pet owner?"
+
 **b. Judgment and verification**
 
 - Describe one moment where you did not accept an AI suggestion as-is.
 - How did you evaluate or verify what the AI suggested?
+
+One important moment where I did **not** accept an AI suggestion as-is was around scheduler complexity. AI suggestions naturally drifted toward adding more logic directly into the `Scheduler` and making it the center of everything. I modified that direction because I wanted to keep the design cleaner and more object-oriented. Instead of letting `Scheduler` directly own every detail, I added `Schedule` and `ScheduledTask` as separate data structures and kept task retrieval logic inside `Owner`. That made the final architecture easier to understand, test, and display in the UI.
+
+I evaluated AI suggestions in three ways:
+
+1. **Design cleanliness**: I asked whether the suggestion improved separation of concerns or whether it just made one class do too much.
+2. **Testability**: If I could not clearly imagine how to write a focused test for a suggestion, that was usually a sign the design was getting messy.
+3. **Behavior verification**: I validated accepted suggestions by running the test suite and by checking whether the UI behavior still matched the intended schedule logic.
+
+Using separate chat sessions for different phases helped me stay organized because each phase had a different goal. In one session I focused on UML and class responsibilities, in another I focused on scheduler algorithms and tests, and in another I focused on the Streamlit UI and README. That separation reduced context drift. It also made it easier to judge AI suggestions based on the current objective instead of mixing architecture, UI, and testing decisions together.
+
+The biggest lesson I learned about being the **lead architect** when working with powerful AI tools is that AI is strongest when it is treated as a fast design assistant, not as the final decision-maker. Copilot could generate options quickly, but it did not automatically protect my system boundaries, naming consistency, or long-term maintainability. I still had to decide what belonged in each class, what tradeoffs were appropriate for the project scope, and what needed to be tested before I trusted it. In that sense, the architect’s job became even more important: AI increased the speed of implementation, but I was responsible for coherence, simplicity, and correctness.
 
 ---
 
