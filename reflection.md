@@ -49,6 +49,10 @@ Additionally, I added a `get_all_tasks()` method to the Owner class to follow th
 - Describe one tradeoff your scheduler makes.
 - Why is that tradeoff reasonable for this scenario?
 
+Tradeoff: The scheduler supports both true overlap detection (`detect_conflicts`) and exact-start collision detection (`detect_same_start_conflicts`), but it chooses to present a lightweight warning for exact start conflicts in the normal flow. This means that the system will explicitly warn about task pairs that begin at the same time, while the full interval-overlap resolution path is simplified for readability and speed. The tradeoff is that it is easier to implement and safer for small-scope petscheduling, but it does not provide advanced backtracking and reallocation for every partial overlap interval that a full constraint solver would.
+
+Rationale: For a basic family-pet planner, avoiding crashes and giving actionable warnings is more useful than aggressively resolving every edge-case overlap. The less-complex design allows future growth to add robust interval solver algorithms if the product’s scope requires it.
+
 ---
 
 ## 3. AI Collaboration

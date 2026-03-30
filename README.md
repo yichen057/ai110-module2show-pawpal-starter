@@ -22,6 +22,18 @@ Your final app should:
 - Display the plan clearly (and ideally explain the reasoning)
 - Include tests for the most important scheduling behaviors
 
+## Smarter Scheduling
+
+PawPal+ now includes smarter task handling:
+
+- priority-based task sorting and optional time-based ordering
+- recurrence support for daily/weekly recurring tasks (auto-creates next occurrence on completion)
+- lightweight conflict detection that warns on exact same start times
+- full overlap detection to capture possible schedule collisions without crashing
+- filters by pet name, completion status, and combined criteria for quick query
+
+The scheduler keeps the core experience simple while giving clear warnings and room to expand into full backtracking/interval resolution later.
+
 ## Getting started
 
 ### Setup
